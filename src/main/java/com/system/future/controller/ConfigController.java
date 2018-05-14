@@ -2,8 +2,9 @@ package com.system.future.controller;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
-import jdk.nashorn.internal.parser.JSONParser;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.PropertySource;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -11,25 +12,26 @@ import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 
 @RestController
 @RequestMapping("/rest")
+@PropertySource("classpath:rest.properties")
 public class ConfigController {
-
-    private final static String BASE_URL = "http://54.254.199.192/api/";
-    private final static String AUTH_CODE = "bearer ea26cdr_ftazqk2au2fknbn9r1_zq07id38wfdmfudu=";
     private static HttpHeaders headers = new HttpHeaders();
 
     static {
         MediaType type = MediaType.parseMediaType("application/json; charset=UTF-8");
         headers.setContentType(type);
         headers.add("Accept", MediaType.APPLICATION_JSON.toString());
-        headers.add("authorization", AUTH_CODE);
     }
+
+    @Value("${baseUrl}")
+    private String baseUrl;
+
+    @Value("${auth_code}")
+    private String authCode;
 
     @Autowired
     private RestTemplate restTemplate;
@@ -40,6 +42,10 @@ public class ConfigController {
         String result = this.restTemplate.postForEntity(url, auth, String.class).getBody();
 
         System.out.println("Get result : " + result);
+    }
+
+    private void setHeadersWithAuth() {
+        headers.add("authorization", authCode);
     }
 
     /**
@@ -54,6 +60,7 @@ public class ConfigController {
         params.put("name", name);
         params.put("alert", true);
         JSONObject itemJSONObj = JSONObject.parseObject(JSON.toJSONString(params));
+        setHeadersWithAuth();
         final HttpEntity<JSONObject> formEntity = new HttpEntity<>(itemJSONObj, headers);
         String result = projectHandler(HttpMethod.POST, formEntity);
         System.out.println("Get all projects:" + result);
@@ -64,6 +71,7 @@ public class ConfigController {
      */
     @GetMapping("/projects")
     public void getProjects() {
+        setHeadersWithAuth();
         final HttpEntity<String> formEntity = new HttpEntity<>(null, headers);
         String result = projectHandler(HttpMethod.GET, formEntity);
         System.out.println("Get all projects:" + result);
@@ -71,7 +79,7 @@ public class ConfigController {
     }
 
     private String projectHandler(HttpMethod method, HttpEntity formEntity) {
-        final String url = BASE_URL + "projects";
+        final String url = baseUrl + "projects";
         String result = restTemplate.exchange
                 (url, method, formEntity, String.class).getBody();
         System.out.println("Get all projects:" + result);
