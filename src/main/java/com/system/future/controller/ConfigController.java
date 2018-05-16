@@ -1,6 +1,7 @@
 package com.system.future.controller;
 
 import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.system.future.vo.InventoryVO;
 import com.system.future.vo.KeyVO;
@@ -66,9 +67,9 @@ public class ConfigController {
      *
      */
     @GetMapping("/projects")
-    public void getProjects() {
+    public String getProjects() {
         String result = request(baseUrl + "projects", HttpMethod.GET);
-        log.info("Get all projects:" + result);
+        return result;
     }
 
     private String request(final String url, final HttpMethod method) {
@@ -76,7 +77,9 @@ public class ConfigController {
     }
 
     private String request(final String url, final HttpMethod method, JSONObject jsonObject) {
-        setHeadersWithAuth();
+        if(!headers.containsKey("authorization")) {
+            setHeadersWithAuth();
+        }
         final HttpEntity<JSONObject> formEntity = new HttpEntity<>(jsonObject, headers);
         String result = restTemplate.exchange
                 (url, method, formEntity, String.class).getBody();
@@ -96,7 +99,7 @@ public class ConfigController {
      * }
      */
     @PostMapping("/project/{projectId}/keys")
-    public void addProjectKeys(@PathVariable("projectId") Long projectId,@RequestBody KeyVO vo) {
+    public void addProjectKeys(@PathVariable("projectId") Long projectId, @RequestBody KeyVO vo) {
         final String url = baseUrl + "project/" + projectId + "/keys";
         Map<String, Object> params = new HashMap<>();
         params.put("name", vo.getName());
@@ -142,7 +145,7 @@ public class ConfigController {
      * }
      */
     @PostMapping("/project/{projectId}/inventory")
-    public void addProjectInve(@PathVariable("projectId") Long projectId,@RequestBody InventoryVO vo) {
+    public void addProjectInve(@PathVariable("projectId") Long projectId, @RequestBody InventoryVO vo) {
         final String url = baseUrl + "project/" + projectId + "/inventory";
         Map<String, Object> params = new HashMap<>();
         params.put("name", vo.getName());
@@ -172,7 +175,7 @@ public class ConfigController {
      * }
      */
     @PostMapping("/project/{projectId}/templates")
-    public void addProjectTemp(@PathVariable("projectId") Long projectId,@RequestBody TemplateVO vo) {
+    public void addProjectTemp(@PathVariable("projectId") Long projectId, @RequestBody TemplateVO vo) {
         final String url = baseUrl + "project/" + projectId + "/templates";
         Map<String, Object> params = new HashMap<>();
         params.put("inventory_id", vo.getInventoryId());
@@ -198,12 +201,45 @@ public class ConfigController {
      * "environment": "string"
      * }
      */
-    @PostMapping("/project/{projectId}/tasks")
+    @GetMapping("/project/{projectId}/tasks/run")
     public void startJobs(@PathVariable("projectId") Long projectId) {
-        final String url = baseUrl + "project/" + projectId + "/tasks";
+
+        String url = baseUrl + "project/" + projectId + "/templates";
+        log.info("Get project templates...." + url);
         String result = request(url, HttpMethod.GET);
         log.info(result);
-        JSONObject jsonObject = JSONObject.parseObject(JSON.toJSONString(result));
+        JSONArray jsonArray = JSON.parseArray(result);
+        JSONObject jsonObject = (JSONObject) jsonArray.get(0);
+
+        Map<String, Object> params = new HashMap<>();
+        params.put("template_id", jsonObject.get("id"));
+        params.put("debug", true);
+        params.put("dry_run", true);
+        params.put("playbook", jsonObject.get("playbook").toString());
+        params.put("environment", null);
+
+
+        url = baseUrl + "project/" + projectId + "/tasks/last";
+        log.info("Config run params....." + url);
+        result = request(url, HttpMethod.GET);
+        jsonArray = JSON.parseArray(result);
+        jsonObject = (JSONObject) jsonArray.get(0);
+        int taskId = jsonObject.getInteger("id") + 1;
+        params.put("id", taskId);
+
+
+        url = baseUrl + "project/" + projectId + "/tasks";
+        log.info("Run Job....." + url);
+        jsonObject = JSONObject.parseObject(JSON.toJSONString(params));
         result = request(url, HttpMethod.POST, jsonObject);
+    }
+
+    @GetMapping("/project/{projectId}/tasks")
+    public String getJobStatus(@PathVariable("projectId") Long projectId) {
+        final String url = baseUrl + "project/" + projectId + "/tasks/last";
+        String result = request(url, HttpMethod.GET);
+        JSONObject jsonObject = (JSONObject) JSON.parseArray(result).get(0);
+        log.info("Last Run Job Status: "+jsonObject.getString("status"));
+        return jsonObject.getString("status");
     }
 }

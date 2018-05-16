@@ -15,3 +15,8 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: true
+
+katharsis:
+    resourcePackage: org.system.future.domain
+    domainName: http://localhost:8080
+    pathPrefix: /api
